@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 
-import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
-import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/automation/AutomationCompatibleInterface.sol";
+import {VRFCoordinatorV2_5} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {AutomationCompatible} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
 
 /**
 *@title Raffle contract
 *@author M.Siddique
 *@notice Fully decentralized Raffle/Lottery contract
-*@dev This contract implements Chainlink VRF Version 2
+*@dev This contract implements Chainlink VRF Version 2.5
 */
 
 
-contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
+contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatible {
 
     // Errors
 
@@ -40,11 +41,11 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
 
     uint256 private s_prizePool;
 
-    VRFCoordinatorV2Interface private immutable i_vrfCoordinatorV2Interface;
+    VRFCoordinatorV2_5 private immutable i_vrfCoordinatorV2_5;
 
     bytes32 private immutable i_keyHash;
 
-    uint64 private immutable i_subscriptionId;
+    uint256 private immutable i_subscriptionId;
 
     uint16 private immutable i_requestNumberOfConfirmations;
 
@@ -72,11 +73,11 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
 
     // Constructor
 
-    constructor(uint256 entranceFee, address vrfCoordinatorV2Interface, bytes32 keyHash, uint64 subscriptionId, uint16 requestNumberOfConfirmations, uint32 callbackGasLimit, uint32 numberOfWords, uint256 chainlinkAutomationInterval) VRFConsumerBaseV2(vrfCoordinatorV2Interface) {
+    constructor(uint256 entranceFee, address vrfCoordinatorV2_5, bytes32 keyHash, uint256 subscriptionId, uint16 requestNumberOfConfirmations, uint32 callbackGasLimit, uint32 numberOfWords, uint256 chainlinkAutomationInterval) VRFConsumerBaseV2Plus(vrfCoordinatorV2_5) {
         
         i_entranceFee = entranceFee;
         
-        i_vrfCoordinatorV2Interface = VRFCoordinatorV2Interface(vrfCoordinatorV2Interface);
+        i_vrfCoordinatorV2_5 = VRFCoordinatorV2_5(vrfCoordinatorV2_5);
 
         i_keyHash = keyHash;
 
@@ -143,13 +144,20 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
 
         s_raffleState = RaffleState.CALCULATING;
 
-        uint256 requestId = i_vrfCoordinatorV2Interface.requestRandomWords(i_keyHash, i_subscriptionId, i_requestNumberOfConfirmations, i_callbackGasLimit, i_numberOfWords);
+        uint256 requestId = i_vrfCoordinatorV2_5.requestRandomWords(VRFV2PlusClient.RandomWordsRequest({
+            keyHash: i_keyHash,
+            subId: i_subscriptionId,
+            requestConfirmations: i_requestNumberOfConfirmations,
+            callbackGasLimit: i_callbackGasLimit,
+            numWords: i_numberOfWords,
+            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({ nativePayment: true }))
+        }));
 
         emit RequestedRandomNumber(requestId);
     }
 
     
-    function fulfillRandomWords(uint256 /* requestId */, uint256[] memory randomWords) internal override {
+    function fulfillRandomWords(uint256 /* requestId */, uint256[] calldata randomWords) internal override {
 
         uint256 randomNumber = randomWords[0] % s_participants.length;
 
@@ -163,13 +171,13 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
 
         s_raffleState = RaffleState.OPEN;
 
+        s_prizePool = 0;
+
+        emit WinnerPicked(s_recentRaffleWinner, address(this).balance);
+
         (bool success, ) = raffleWinner.call{ value: address(this).balance }("");
 
         if(!success) revert Raffle__Transfer_failed();
-
-        emit WinnerPicked(s_recentRaffleWinner, s_prizePool);
-
-        s_prizePool = 0;
     }
 
 
@@ -211,9 +219,9 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     }
 
 
-    function getVRFCoordinatorV2Interface() external view returns(VRFCoordinatorV2Interface) {
+    function getVRFCoordinatorV2_5() external view returns(VRFCoordinatorV2_5) {
 
-        return i_vrfCoordinatorV2Interface;
+        return i_vrfCoordinatorV2_5;
     }
 
 
@@ -223,7 +231,7 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     }
 
 
-    function getSubscriptionId() external view returns(uint64) {
+    function getSubscriptionId() external view returns(uint256) {
 
         return i_subscriptionId;
     }
