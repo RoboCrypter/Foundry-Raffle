@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 
 import {Script} from "forge-std/Script.sol";
@@ -12,7 +12,7 @@ contract RaffleScript is Script {
 
     uint256 private entranceFee = 0.01 ether;
 
-    bytes32 private keyHash = 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c;
+    bytes32 private keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
 
     uint16 private requestNumberOfConfirmations = 3;
 
@@ -27,13 +27,13 @@ contract RaffleScript is Script {
 
         HelperConfig helperConfig = new HelperConfig();
 
-        address vrfCoordinatorV2Interface = helperConfig.vrfCoordinatorV2Interface();
+        address vrfCoordinatorV2_5 = helperConfig.vrfCoordinatorV2_5();
 
-        uint64 subscriptionId = helperConfig.SUBSCRIPTION_ID();
+        uint256 subscriptionId = helperConfig.SUBSCRIPTION_ID();
 
         vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
 
-        Raffle raffle = new Raffle(entranceFee, vrfCoordinatorV2Interface, keyHash, subscriptionId, requestNumberOfConfirmations, callbackGasLimit, numberOfWords, chainlinkAutomationInterval);
+        Raffle raffle = new Raffle(entranceFee, vrfCoordinatorV2_5, keyHash, subscriptionId, requestNumberOfConfirmations, callbackGasLimit, numberOfWords, chainlinkAutomationInterval);
 
         vm.stopBroadcast();
 
